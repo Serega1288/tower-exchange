@@ -41,7 +41,7 @@ function tower_bootstrap_message(string $key, string $label): array
         'message_' . $key,
         'message',
         array(
-            'message' => '<strong>' . esc_html($label) . '</strong>',
+            'message' => '',
             'new_lines' => 'wpautop',
             'esc_html' => 0,
             'wrapper' => array('width' => '100', 'class' => 'tower-field-heading', 'id' => ''),
@@ -394,6 +394,78 @@ $constructor_group = array(
     'show_in_rest' => 0,
 );
 
+/**
+ * Return every message field from a field definition, including nested layouts.
+ *
+ * @param array<int, array<string, mixed>> $fields ACF field definitions.
+ * @return array<int, array<string, mixed>>
+ */
+function tower_bootstrap_collect_message_fields(array $fields): array
+{
+    $messages = array();
+
+    foreach ($fields as $field) {
+        if ('message' === ($field['type'] ?? '')) {
+            $messages[] = $field;
+        }
+
+        if (! empty($field['sub_fields']) && is_array($field['sub_fields'])) {
+            $messages = array_merge($messages, tower_bootstrap_collect_message_fields($field['sub_fields']));
+        }
+
+        if (! empty($field['layouts']) && is_array($field['layouts'])) {
+            foreach ($field['layouts'] as $layout) {
+                if (! empty($layout['sub_fields']) && is_array($layout['sub_fields'])) {
+                    $messages = array_merge($messages, tower_bootstrap_collect_message_fields($layout['sub_fields']));
+                }
+            }
+        }
+    }
+
+    return $messages;
+}
+
+/**
+ * Remove the duplicated body from message fields created by the first bootstrap.
+ *
+ * Only fields whose message still matches their label are changed, so any message
+ * customized later in ACF remains untouched.
+ *
+ * @param array<int, array<string, mixed>> $field_groups ACF field groups.
+ */
+function tower_bootstrap_migrate_duplicate_messages(array $field_groups): void
+{
+    $migration_version = '1';
+    if ($migration_version === get_option('tower_exchange_acf_message_cleanup_version')) {
+        return;
+    }
+
+    $updated = 0;
+    foreach ($field_groups as $field_group) {
+        $message_fields = tower_bootstrap_collect_message_fields($field_group['fields'] ?? array());
+
+        foreach ($message_fields as $message_field) {
+            $stored_field = acf_get_field($message_field['key']);
+            if (! $stored_field) {
+                continue;
+            }
+
+            $stored_label   = trim(wp_strip_all_tags((string) ($stored_field['label'] ?? '')));
+            $stored_message = trim(wp_strip_all_tags((string) ($stored_field['message'] ?? '')));
+            if ('' === $stored_message || $stored_message !== $stored_label) {
+                continue;
+            }
+
+            $stored_field['message'] = '';
+            acf_update_field($stored_field);
+            ++$updated;
+        }
+    }
+
+    update_option('tower_exchange_acf_message_cleanup_version', $migration_version, false);
+    WP_CLI::log(sprintf('Removed duplicated text from %d ACF section headings.', $updated));
+}
+
 foreach (array($options_group, $constructor_group) as $field_group) {
     if (! acf_get_field_group($field_group['key'])) {
         acf_import_field_group($field_group);
@@ -402,6 +474,8 @@ foreach (array($options_group, $constructor_group) as $field_group) {
         WP_CLI::log('Kept existing ACF field group: ' . $field_group['title']);
     }
 }
+
+tower_bootstrap_migrate_duplicate_messages(array($options_group, $constructor_group));
 
 $bootstrap_complete = (bool) get_option('tower_exchange_bootstrap_complete', false);
 
