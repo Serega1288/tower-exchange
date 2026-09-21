@@ -8,6 +8,15 @@
     if (root.dataset.interactionsReady === "true") return;
     root.dataset.interactionsReady = "true";
 
+    document.querySelectorAll("[data-back-link]").forEach((link) => {
+      link.addEventListener("click", (event) => {
+        if (window.history.length <= 1) return;
+
+        event.preventDefault();
+        window.history.back();
+      });
+    });
+
     const variant = root.dataset.variant || "1";
     const assetBase = root.dataset.assetBase || "../assets";
     const themeColors = {

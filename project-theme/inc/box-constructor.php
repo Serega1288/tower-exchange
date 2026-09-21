@@ -29,6 +29,9 @@ while (have_rows('constructor')) :
     }
 
     switch (get_row_layout()) {
+        case 'template-simple-text':
+            get_template_part('inc/template/simple-text', null, $section_suffix);
+            break;
         case 'template-hero':
             get_template_part('inc/template/hero', null, $section_suffix);
             break;

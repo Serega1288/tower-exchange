@@ -26,6 +26,8 @@ $mobile_cta     = tower_exchange_link(
         'target' => '_blank',
     )
 );
+$privacy_url = get_privacy_policy_url();
+$terms_page  = get_page_by_path('terms-of-use', OBJECT, 'page');
 ?>
     <footer class="site-footer">
         <div class="container footer__top">
@@ -59,10 +61,32 @@ $mobile_cta     = tower_exchange_link(
         </div>
         <div class="container footer__bottom">
             <span><?php echo esc_html($copyright); ?></span>
-            <div>
-                <span class="future-link"><?php esc_html_e('Політика конфіденційності · готується', 'tower-exchange'); ?></span>
-                <span class="future-link"><?php esc_html_e('Умови користування · готуються', 'tower-exchange'); ?></span>
-            </div>
+            <nav class="footer__legal" aria-label="<?php esc_attr_e('Юридична інформація', 'tower-exchange'); ?>">
+                <?php
+                if (has_nav_menu('footer-legal')) {
+                    wp_nav_menu(
+                        array(
+                            'theme_location' => 'footer-legal',
+                            'container'      => false,
+                            'menu_class'     => 'menu',
+                            'depth'          => 1,
+                            'fallback_cb'    => false,
+                        )
+                    );
+                } else {
+                    ?>
+                    <ul class="menu">
+                        <?php if ($privacy_url) : ?>
+                            <li><a href="<?php echo esc_url($privacy_url); ?>"><?php esc_html_e('Політика конфіденційності', 'tower-exchange'); ?></a></li>
+                        <?php endif; ?>
+                        <?php if ($terms_page instanceof WP_Post) : ?>
+                            <li><a href="<?php echo esc_url(get_permalink($terms_page)); ?>"><?php esc_html_e('Умови користування', 'tower-exchange'); ?></a></li>
+                        <?php endif; ?>
+                    </ul>
+                    <?php
+                }
+                ?>
+            </nav>
         </div>
     </footer>
     <a class="mobile-cta" href="<?php echo esc_url($mobile_cta['url']); ?>"<?php echo $mobile_cta['target'] ? ' target="' . esc_attr($mobile_cta['target']) . '"' : ''; ?><?php echo tower_exchange_link_rel($mobile_cta) ? ' rel="' . esc_attr(tower_exchange_link_rel($mobile_cta)) . '"' : ''; ?>>
