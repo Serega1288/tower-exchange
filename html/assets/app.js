@@ -120,7 +120,7 @@
         }
       });
 
-      const desktopQuery = window.matchMedia("(min-width: 901px)");
+      const desktopQuery = window.matchMedia("(min-width: 1161px)");
       const closeDesktopMenu = (event) => {
         if (event.matches) setMenu(false);
       };
@@ -130,6 +130,111 @@
       } else {
         desktopQuery.addListener(closeDesktopMenu);
       }
+    }
+
+    const sectionLinks = [
+      ...document.querySelectorAll(
+        '.desktop-nav a[href*="#"], #mobile-menu a[href*="#"]',
+      ),
+    ];
+    const sectionLinkGroups = new Map();
+    const currentUrl = new URL(window.location.href);
+
+    sectionLinks.forEach((link) => {
+      let linkUrl;
+
+      try {
+        linkUrl = new URL(link.href, currentUrl.href);
+      } catch {
+        return;
+      }
+
+      if (
+        linkUrl.origin !== currentUrl.origin ||
+        linkUrl.pathname !== currentUrl.pathname ||
+        !linkUrl.hash
+      ) {
+        return;
+      }
+
+      let sectionId;
+      try {
+        sectionId = decodeURIComponent(linkUrl.hash.slice(1));
+      } catch {
+        return;
+      }
+
+      const section = document.getElementById(sectionId);
+      if (!section) return;
+
+      if (!sectionLinkGroups.has(sectionId)) {
+        sectionLinkGroups.set(sectionId, { id: sectionId, section, links: [] });
+      }
+      sectionLinkGroups.get(sectionId).links.push(link);
+    });
+
+    const trackedSections = [...sectionLinkGroups.values()].sort(
+      (first, second) => {
+        const position = first.section.compareDocumentPosition(second.section);
+        if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+        if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+        return 0;
+      },
+    );
+
+    if (trackedSections.length) {
+      let activeSectionId = null;
+      let scrollSpyFrame = 0;
+
+      const setActiveSection = (sectionId) => {
+        if (activeSectionId === sectionId) return;
+        activeSectionId = sectionId;
+
+        sectionLinkGroups.forEach((group, groupId) => {
+          const isActive = groupId === sectionId;
+
+          group.links.forEach((link) => {
+            link.classList.toggle("is-active", isActive);
+            if (isActive) {
+              link.setAttribute("aria-current", "location");
+            } else if (link.getAttribute("aria-current") === "location") {
+              link.removeAttribute("aria-current");
+            }
+          });
+        });
+      };
+
+      const updateActiveSection = () => {
+        scrollSpyFrame = 0;
+        const headerInner = document.querySelector(".header__inner");
+        const headerBottom = headerInner?.getBoundingClientRect().bottom || 0;
+        const scrollPaddingTop =
+          Number.parseFloat(getComputedStyle(root).scrollPaddingTop) || 0;
+        const activationLine = Math.max(
+          headerBottom + 24,
+          scrollPaddingTop + 2,
+        );
+        let nextSectionId = null;
+
+        trackedSections.forEach(({ id, section }) => {
+          if (section.getBoundingClientRect().top <= activationLine) {
+            nextSectionId = id;
+          }
+        });
+
+        setActiveSection(nextSectionId);
+      };
+
+      const scheduleScrollSpy = () => {
+        if (scrollSpyFrame) return;
+        scrollSpyFrame = window.requestAnimationFrame(updateActiveSection);
+      };
+
+      window.addEventListener("scroll", scheduleScrollSpy, { passive: true });
+      window.addEventListener("resize", scheduleScrollSpy);
+      window.addEventListener("load", scheduleScrollSpy);
+      window.addEventListener("hashchange", scheduleScrollSpy);
+      scheduleScrollSpy();
     }
 
     const calculator = document.querySelector('[data-feature="calculator"]');
