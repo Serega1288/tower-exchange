@@ -31,13 +31,26 @@ $allowed_styles = array('yellow', 'black', 'paper');
                 <?php $post_number = 1; ?>
                 <?php while (have_rows('posts')) : the_row(); ?>
                     <?php
-                    $style = (string) get_sub_field('style');
-                    $style = in_array($style, $allowed_styles, true) ? $style : 'yellow';
-                    $link  = tower_exchange_link(get_sub_field('link'), array('url' => '#', 'title' => '', 'target' => ''));
+                    $style       = (string) get_sub_field('style');
+                    $style       = in_array($style, $allowed_styles, true) ? $style : 'yellow';
+                    $link        = tower_exchange_link(get_sub_field('link'), array('url' => '#', 'title' => '', 'target' => ''));
+                    $cover       = get_sub_field('cover');
+                    $cover_url   = tower_exchange_image_url($cover, '');
+                    $card_class  = 'post-card post-card--' . $style;
+                    $card_class .= $cover_url ? ' post-card--has-image' : '';
                     ?>
-                    <a class="post-card post-card--<?php echo esc_attr($style); ?>" href="<?php echo esc_url($link['url']); ?>"<?php echo $link['target'] ? ' target="' . esc_attr($link['target']) . '"' : ''; ?><?php echo tower_exchange_link_rel($link) ? ' rel="' . esc_attr(tower_exchange_link_rel($link)) . '"' : ''; ?>>
+                    <a class="<?php echo esc_attr($card_class); ?>" href="<?php echo esc_url($link['url']); ?>"<?php echo $link['target'] ? ' target="' . esc_attr($link['target']) . '"' : ''; ?><?php echo tower_exchange_link_rel($link) ? ' rel="' . esc_attr(tower_exchange_link_rel($link)) . '"' : ''; ?>>
+                        <?php if ($cover_url) : ?>
+                            <span class="post-card__media" aria-hidden="true">
+                                <?php if (is_numeric($cover)) : ?>
+                                    <?php echo wp_get_attachment_image((int) $cover, 'large', false, array('class' => 'post-card__image', 'alt' => '', 'loading' => 'lazy', 'decoding' => 'async')); ?>
+                                <?php else : ?>
+                                    <img class="post-card__image" src="<?php echo esc_url($cover_url); ?>" alt="" loading="lazy" decoding="async">
+                                <?php endif; ?>
+                            </span>
+                        <?php endif; ?>
                         <div class="post-card__top"><span><?php echo esc_html(str_pad((string) $post_number, 2, '0', STR_PAD_LEFT) . ' / ' . (string) get_sub_field('type')); ?></span><?php echo tower_exchange_icon('instagram', 21); ?></div>
-                        <div class="post-card__motif" aria-hidden="true"><span></span><span></span><span></span></div>
+                        <?php if (! $cover_url) : ?><div class="post-card__motif" aria-hidden="true"><span></span><span></span><span></span></div><?php endif; ?>
                         <div class="post-card__bottom"><h3><?php echo esc_html((string) get_sub_field('title')); ?></h3><span class="post-card__arrow"><?php echo tower_exchange_icon('arrow', 20); ?></span></div>
                     </a>
                     <?php ++$post_number; ?>

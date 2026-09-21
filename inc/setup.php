@@ -22,6 +22,7 @@ function tower_exchange_setup(): void
             'header-desktop' => __('Header desktop menu', 'tower-exchange'),
             'header-mobile'  => __('Header mobile menu', 'tower-exchange'),
             'footer-social'  => __('Footer social links', 'tower-exchange'),
+            'footer-legal'   => __('Footer legal menu', 'tower-exchange'),
         )
     );
 }

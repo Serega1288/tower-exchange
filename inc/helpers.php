@@ -80,6 +80,40 @@ function tower_exchange_link_rel(array $link): string
 }
 
 /**
+ * Return a trusted Google Maps embed URL.
+ *
+ * Editors paste the URL from Google Maps' "Embed a map" dialog. Limiting the
+ * host and path prevents the iframe field from becoming an arbitrary embed.
+ */
+function tower_exchange_google_maps_embed_url(mixed $value, string $fallback = ''): string
+{
+    foreach (array($value, $fallback) as $candidate) {
+        if (! is_string($candidate) || '' === trim($candidate)) {
+            continue;
+        }
+
+        $candidate = trim($candidate);
+        $parts = wp_parse_url($candidate);
+        if (! is_array($parts)
+            || 'https' !== strtolower((string) ($parts['scheme'] ?? ''))
+            || 'www.google.com' !== strtolower((string) ($parts['host'] ?? ''))
+            || '/maps/embed' !== ($parts['path'] ?? '')
+        ) {
+            continue;
+        }
+
+        parse_str((string) ($parts['query'] ?? ''), $query);
+        if (empty($query['pb']) || ! is_string($query['pb'])) {
+            continue;
+        }
+
+        return esc_url_raw($candidate, array('https'));
+    }
+
+    return '';
+}
+
+/**
  * Return a stable anchor for the first section instance and a unique suffix
  * for any repeated Flexible Content layout.
  */
@@ -108,6 +142,7 @@ function tower_exchange_icon(string $name, int $size = 18): string
         'bank'      => '<path d="m3 10 9-6 9 6"></path><path d="M5 10v8m5-8v8m4-8v8m5-8v8M3 21h18"></path>',
         'instagram' => '<rect x="3" y="3" width="18" height="18" rx="5"></rect><circle cx="12" cy="12" r="4"></circle><circle cx="17.5" cy="6.5" r=".7" fill="currentColor" stroke="none"></circle>',
         'chevron'   => '<path d="m7 10 5 5 5-5"></path>',
+        'back'      => '<path d="M19 12H5"></path><path d="m11 18-6-6 6-6"></path>',
         'menu'      => '<path d="M4 7h16M4 12h16M4 17h16"></path>',
         'sun'       => '<circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>',
         'moon'      => '<path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5a8.5 8.5 0 1 0 12 12Z"></path>',

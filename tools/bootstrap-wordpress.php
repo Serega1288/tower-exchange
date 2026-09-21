@@ -282,6 +282,17 @@ $security_fields = array(
     ),
 );
 
+$office_map_embed_field = tower_bootstrap_field(
+    'office_map_embed_url',
+    'Google Maps — URL для вбудовування',
+    'map_embed_url',
+    'url',
+    array(
+        'instructions' => 'У Google Maps оберіть «Поділитися» → «Вбудувати карту» і вставте лише URL з атрибута src.',
+        'wrapper' => array('width' => '100', 'class' => '', 'id' => ''),
+    )
+);
+
 $office_fields = array(
     tower_bootstrap_disable('office'),
     tower_bootstrap_message('office_heading_message', 'Офіс і адреса'),
@@ -292,9 +303,24 @@ $office_fields = array(
     tower_bootstrap_textarea('office_text', 'Опис', 'text', '100'),
     tower_bootstrap_link_field('office_primary_link', 'Основна кнопка', 'primary_link', '50'),
     tower_bootstrap_link_field('office_map_link', 'Кнопка мапи', 'map_link', '50'),
-    tower_bootstrap_message('office_map_message', 'Графічна мапа'),
+    tower_bootstrap_message('office_map_message', 'Google Map'),
     tower_bootstrap_text('office_map_label', 'Мітка на мапі', 'map_label', '50'),
     tower_bootstrap_text('office_coordinates', 'Координати', 'coordinates', '50'),
+    $office_map_embed_field,
+);
+
+$social_post_cover_field = tower_bootstrap_field(
+    'social_post_cover',
+    'Обкладинка',
+    'cover',
+    'image',
+    array(
+        'instructions'  => 'Вертикальна обкладинка публікації або Reels. Рекомендоване співвідношення сторін — 9:16.',
+        'return_format' => 'id',
+        'preview_size'  => 'medium',
+        'library'       => 'all',
+        'wrapper'       => array('width' => '100', 'class' => '', 'id' => ''),
+    )
 );
 
 $social_fields = array(
@@ -314,6 +340,7 @@ $social_fields = array(
             tower_bootstrap_select('social_post_style', 'Стиль картки', 'style', array('yellow' => 'Жовтий', 'black' => 'Чорний', 'paper' => 'Паперовий'), '20'),
             tower_bootstrap_text('social_post_title', 'Заголовок', 'title', '35'),
             tower_bootstrap_link_field('social_post_link', 'Посилання', 'link', '30'),
+            $social_post_cover_field,
         ),
         'Додати публікацію'
     ),
@@ -353,6 +380,31 @@ $final_cta_fields = array(
     tower_bootstrap_link_field('final_cta_secondary', 'Друга кнопка', 'secondary_link', '50'),
 );
 
+$simple_text_fields = array(
+    tower_bootstrap_disable('simple_text'),
+    tower_bootstrap_message('simple_text_heading_message', 'Текстовий блок'),
+    tower_bootstrap_text('simple_text_title', 'Заголовок', 'title', '100'),
+    tower_bootstrap_field(
+        'simple_text_content',
+        'Текст',
+        'content',
+        'wysiwyg',
+        array(
+            'tabs'         => 'visual',
+            'toolbar'      => 'basic',
+            'media_upload' => 0,
+            'delay'        => 0,
+            'wrapper'      => array('width' => '100', 'class' => '', 'id' => ''),
+        )
+    ),
+);
+$simple_text_layout = tower_bootstrap_layout(
+    'simple_text',
+    'template-simple-text',
+    'Текстовий блок',
+    $simple_text_fields
+);
+
 $constructor_group = array(
     'key' => 'group_tower_constructor',
     'title' => 'Конструктор сторінки Tower Exchange',
@@ -364,6 +416,7 @@ $constructor_group = array(
             'flexible_content',
             array(
                 'layouts' => array(
+                    $simple_text_layout,
                     tower_bootstrap_layout('hero', 'template-hero', 'Hero', $hero_fields),
                     tower_bootstrap_layout('calculator', 'template-calculator', 'Попередній розрахунок', $calculator_fields),
                     tower_bootstrap_layout('services', 'template-services', 'Послуги', $services_fields),
@@ -466,6 +519,184 @@ function tower_bootstrap_migrate_duplicate_messages(array $field_groups): void
     WP_CLI::log(sprintf('Removed duplicated text from %d ACF section headings.', $updated));
 }
 
+/**
+ * Add the Google Maps embed field to an already imported constructor group.
+ *
+ * Existing ACF groups are intentionally not re-imported, so this migration
+ * adds only the new field and preserves any editor changes to the group.
+ */
+function tower_bootstrap_migrate_office_map_embed_field(array $field): void
+{
+    $migration_version = '1';
+    if ($migration_version === get_option('tower_exchange_acf_map_embed_field_version')) {
+        return;
+    }
+
+    if (! acf_get_field($field['key'])) {
+        $field['parent'] = 'field_tower_constructor';
+        $field['parent_layout'] = 'layout_tower_office';
+        $field['menu_order'] = 12;
+        $updated_field = acf_update_field($field);
+
+        if (empty($updated_field['ID'])) {
+            WP_CLI::warning('Could not add the Google Maps embed field. The migration will retry next time.');
+            return;
+        }
+
+        WP_CLI::log('Added the Google Maps embed field to the Office layout.');
+    }
+
+    $map_message = acf_get_field('field_tower_office_map_message');
+    if ($map_message && 'Графічна мапа' === ($map_message['label'] ?? '')) {
+        $map_message['label'] = 'Google Map';
+        acf_update_field($map_message);
+    }
+
+    update_option('tower_exchange_acf_map_embed_field_version', $migration_version, false);
+}
+
+/**
+ * Add the Reel cover field to the existing Social repeater.
+ *
+ * Existing ACF groups are intentionally not re-imported, so the field is
+ * attached directly to the stored repeater and editor customizations remain.
+ *
+ * @param array<string, mixed> $field ACF image field definition.
+ */
+function tower_bootstrap_migrate_social_post_cover_field(array $field): void
+{
+    $migration_version = '1';
+    if ($migration_version === get_option('tower_exchange_acf_social_cover_field_version')) {
+        return;
+    }
+
+    $posts_field = acf_get_field('field_tower_social_posts');
+    if (! $posts_field) {
+        WP_CLI::warning('Could not find the Social posts repeater. The cover field migration will retry next time.');
+        return;
+    }
+
+    if (! acf_get_field($field['key'])) {
+        $field['parent']     = ! empty($posts_field['ID']) ? (int) $posts_field['ID'] : $posts_field['key'];
+        $field['menu_order'] = count($posts_field['sub_fields'] ?? array());
+        $updated_field       = acf_update_field($field);
+
+        if (empty($updated_field['ID'])) {
+            WP_CLI::warning('Could not add the Social post cover field. The migration will retry next time.');
+            return;
+        }
+
+        WP_CLI::log('Added the cover field to Social post cards.');
+
+        // The constructor may already be cached with the repeater's previous
+        // sub-field list. Reload ACF fields so covers can be seeded in this run.
+        $fields_store = acf_get_store('fields');
+        if ($fields_store) {
+            $fields_store->reset();
+        }
+        $posts_field = acf_get_field('field_tower_social_posts');
+        if (! $posts_field) {
+            WP_CLI::warning('Could not reload the Social posts repeater. The cover field migration will retry next time.');
+            return;
+        }
+    }
+
+    $stored_field  = acf_get_field($field['key']);
+    $valid_parents = array_filter(
+        array(
+            (string) ($posts_field['ID'] ?? ''),
+            (string) ($posts_field['key'] ?? ''),
+        )
+    );
+    if (
+        ! $stored_field
+        || ! in_array((string) ($stored_field['parent'] ?? ''), $valid_parents, true)
+        || 'image' !== ($stored_field['type'] ?? '')
+        || 'cover' !== ($stored_field['name'] ?? '')
+        || 'id' !== ($stored_field['return_format'] ?? '')
+    ) {
+        WP_CLI::warning('Could not verify the Social post cover field. The migration will retry next time.');
+        return;
+    }
+
+    update_option('tower_exchange_acf_social_cover_field_version', $migration_version, false);
+}
+
+/**
+ * Add the reusable text layout without re-importing the editor-managed group.
+ *
+ * @param array<string, mixed> $layout Flexible Content layout definition.
+ */
+function tower_bootstrap_migrate_simple_text_layout(array $layout): void
+{
+    $migration_version = '1';
+    if ($migration_version === get_option('tower_exchange_acf_simple_text_layout_version')) {
+        return;
+    }
+
+    $constructor_field = acf_get_field('field_tower_constructor');
+    if (! $constructor_field) {
+        WP_CLI::warning('Could not find the constructor field. The text layout migration will retry next time.');
+        return;
+    }
+
+    $layout_key = '';
+    foreach (($constructor_field['layouts'] ?? array()) as $stored_layout) {
+        if (
+            ($stored_layout['key'] ?? '') === ($layout['key'] ?? '')
+            || ($stored_layout['name'] ?? '') === ($layout['name'] ?? '')
+        ) {
+            $layout_key = (string) ($stored_layout['key'] ?? $layout['key']);
+            break;
+        }
+    }
+
+    if ('' === $layout_key) {
+        $layout_metadata = $layout;
+        unset($layout_metadata['sub_fields']);
+        $constructor_field['layouts'][] = $layout_metadata;
+        acf_update_field($constructor_field);
+        $layout_key = (string) $layout['key'];
+        WP_CLI::log('Added the reusable text layout to the page constructor.');
+    }
+
+    foreach (($layout['sub_fields'] ?? array()) as $menu_order => $field) {
+        if (acf_get_field($field['key'])) {
+            continue;
+        }
+
+        $field['parent']        = 'field_tower_constructor';
+        $field['parent_layout'] = $layout_key;
+        $field['menu_order']    = $menu_order;
+        acf_update_field($field);
+    }
+
+    $verified_constructor = acf_get_field('field_tower_constructor');
+    $verified_layout      = false;
+    foreach (($verified_constructor['layouts'] ?? array()) as $stored_layout) {
+        if (($stored_layout['key'] ?? '') === $layout_key) {
+            $verified_layout = true;
+            break;
+        }
+    }
+
+    $verified_fields = true;
+    foreach (($layout['sub_fields'] ?? array()) as $field) {
+        $stored_field = acf_get_field($field['key']);
+        if (! $stored_field || $layout_key !== ($stored_field['parent_layout'] ?? '')) {
+            $verified_fields = false;
+            break;
+        }
+    }
+
+    if (! $verified_layout || ! $verified_fields) {
+        WP_CLI::warning('Could not verify the reusable text layout. The migration will retry next time.');
+        return;
+    }
+
+    update_option('tower_exchange_acf_simple_text_layout_version', $migration_version, false);
+}
+
 foreach (array($options_group, $constructor_group) as $field_group) {
     if (! acf_get_field_group($field_group['key'])) {
         acf_import_field_group($field_group);
@@ -476,6 +707,9 @@ foreach (array($options_group, $constructor_group) as $field_group) {
 }
 
 tower_bootstrap_migrate_duplicate_messages(array($options_group, $constructor_group));
+tower_bootstrap_migrate_office_map_embed_field($office_map_embed_field);
+tower_bootstrap_migrate_social_post_cover_field($social_post_cover_field);
+tower_bootstrap_migrate_simple_text_layout($simple_text_layout);
 
 $bootstrap_complete = (bool) get_option('tower_exchange_bootstrap_complete', false);
 
@@ -523,6 +757,23 @@ function tower_bootstrap_import_image(string $path, string $title, string $alt):
 $theme_dir = get_template_directory();
 $logo_light_id = tower_bootstrap_import_image($theme_dir . '/assets/brand/tower-light.png', 'Tower Exchange — світлий логотип', 'Tower Exchange');
 $logo_dark_id  = tower_bootstrap_import_image($theme_dir . '/assets/brand/tower-dark.png', 'Tower Exchange — темний логотип', 'Tower Exchange');
+$social_cover_ids = array(
+    'DNf4wPVquxE' => tower_bootstrap_import_image(
+        $theme_dir . '/assets/social/reel-comfort.jpg',
+        'Instagram — Працюємо для вашого комфорту',
+        'Працюємо для вашого комфорту — Tower Exchange'
+    ),
+    'DSfZCbtCjDp' => tower_bootstrap_import_image(
+        $theme_dir . '/assets/social/reel-wallet.jpg',
+        'Instagram — На сторожі вашого кохання',
+        'На сторожі вашого кохання — Tower Exchange'
+    ),
+    'DMK43ErNyfQ' => tower_bootstrap_import_image(
+        $theme_dir . '/assets/social/reel-worldwide.jpg',
+        'Instagram — Сервіси, що знаються в якості',
+        'Сервіси, що знаються в якості — Tower Exchange'
+    ),
+);
 
 $option_defaults = array(
     'field_tower_logo_light' => $logo_light_id,
@@ -583,6 +834,7 @@ if ($home_created || ! $bootstrap_complete) {
 }
 
 $manager = 'https://t.me/towerexchange_kyiv';
+$google_maps_embed_url = 'https://www.google.com/maps/embed?origin=mfe&pb=!1m2!2m1!1z0JHQpiDQn9Cw0YDRg9GBLCDQstGD0LsuINCc0LXRh9C90LjQutC-0LLQsCwgMiwg0JrQuNGX0LI';
 $constructor_rows = array(
     array(
         'acf_fc_layout' => 'template-hero',
@@ -673,6 +925,7 @@ $constructor_rows = array(
         'map_link' => array('url' => 'https://www.google.com/maps/search/?api=1&query=вул.+Мечникова+2+БЦ+Парус+Київ', 'title' => 'Відкрити на мапі', 'target' => '_blank'),
         'map_label' => 'Tower Exchange',
         'coordinates' => '50.4382° N · 30.5231° E',
+        'map_embed_url' => $google_maps_embed_url,
     ),
     array(
         'acf_fc_layout' => 'template-social',
@@ -682,9 +935,9 @@ $constructor_rows = array(
         'intro' => 'Новини, процес обміну та життя Tower Exchange у Києві.',
         'profile_link' => array('url' => 'https://www.instagram.com/tower.exchange.kyiv/', 'title' => '@tower.exchange.kyiv', 'target' => '_blank'),
         'posts' => array(
-            array('type' => 'REEL', 'style' => 'yellow', 'title' => 'Працюємо для вашого комфорту', 'link' => array('url' => 'https://www.instagram.com/tower.exchange.kyiv/reel/DNf4wPVquxE/', 'title' => 'Відкрити', 'target' => '_blank')),
-            array('type' => 'REEL', 'style' => 'black', 'title' => 'На сторожі вашого гаманця', 'link' => array('url' => 'https://www.instagram.com/tower.exchange.kyiv/reel/DSfZCbtCjDp/', 'title' => 'Відкрити', 'target' => '_blank')),
-            array('type' => 'REEL', 'style' => 'paper', 'title' => 'Фінансові послуги по всьому світу', 'link' => array('url' => 'https://www.instagram.com/tower.exchange.kyiv/reel/DMK43ErNyfQ/', 'title' => 'Відкрити', 'target' => '_blank')),
+            array('type' => 'REEL', 'style' => 'yellow', 'title' => 'Працюємо для вашого комфорту', 'link' => array('url' => 'https://www.instagram.com/tower.exchange.kyiv/reel/DNf4wPVquxE/', 'title' => 'Відкрити', 'target' => '_blank'), 'cover' => $social_cover_ids['DNf4wPVquxE']),
+            array('type' => 'REEL', 'style' => 'black', 'title' => 'На сторожі вашого кохання', 'link' => array('url' => 'https://www.instagram.com/tower.exchange.kyiv/reel/DSfZCbtCjDp/', 'title' => 'Відкрити', 'target' => '_blank'), 'cover' => $social_cover_ids['DSfZCbtCjDp']),
+            array('type' => 'REEL', 'style' => 'paper', 'title' => 'Сервіси, що знаються в якості', 'link' => array('url' => 'https://www.instagram.com/tower.exchange.kyiv/reel/DMK43ErNyfQ/', 'title' => 'Відкрити', 'target' => '_blank'), 'cover' => $social_cover_ids['DMK43ErNyfQ']),
         ),
         'reviews_label' => 'Відгуки клієнтів',
         'reviews_text' => 'Переглядайте в актуальному Instagram',
@@ -725,6 +978,241 @@ if (($home_created || ! $bootstrap_complete) && empty($current_constructor)) {
     WP_CLI::log('Kept the existing home page constructor content.');
 }
 
+/**
+ * Populate only an empty embed URL in existing Office rows.
+ */
+function tower_bootstrap_migrate_office_map_embed_value(int $page_id, string $embed_url): void
+{
+    $migration_version = '1';
+    if ($migration_version === get_option('tower_exchange_acf_map_embed_value_version')) {
+        return;
+    }
+
+    $rows = get_field('constructor', $page_id, false);
+    if (! is_array($rows)) {
+        return;
+    }
+
+    $updated = 0;
+    foreach ($rows as $index => $row) {
+        if ('template-office' !== ($row['acf_fc_layout'] ?? '')) {
+            continue;
+        }
+
+        $current_url = $row['field_tower_office_map_embed_url'] ?? $row['map_embed_url'] ?? '';
+        if (is_string($current_url) && '' !== trim($current_url)) {
+            continue;
+        }
+
+        $rows[$index]['field_tower_office_map_embed_url'] = $embed_url;
+        ++$updated;
+    }
+
+    if ($updated) {
+        update_field('field_tower_constructor', $rows, $page_id);
+
+        $verified_rows = get_field('constructor', $page_id, false);
+        foreach (is_array($verified_rows) ? $verified_rows : array() as $verified_row) {
+            if ('template-office' !== ($verified_row['acf_fc_layout'] ?? '')) {
+                continue;
+            }
+
+            $verified_url = $verified_row['field_tower_office_map_embed_url'] ?? $verified_row['map_embed_url'] ?? '';
+            if (! is_string($verified_url) || '' === trim($verified_url)) {
+                WP_CLI::warning('Could not populate the Google Maps embed URL. The migration will retry next time.');
+                return;
+            }
+        }
+    }
+
+    update_option('tower_exchange_acf_map_embed_value_version', $migration_version, false);
+    WP_CLI::log(sprintf('Populated the Google Maps embed URL in %d Office section(s).', $updated));
+}
+
+tower_bootstrap_migrate_office_map_embed_value($home_id, $google_maps_embed_url);
+
+/**
+ * Populate local Reel covers only for known cards whose cover is still empty.
+ *
+ * The migration matches by the public Reel URL, so reordered cards and custom
+ * cards are preserved. Seed titles are corrected only while they still match
+ * the original bootstrap copy.
+ *
+ * @param array<string, int> $cover_ids Attachment IDs keyed by Reel shortcode.
+ */
+function tower_bootstrap_migrate_social_post_covers(int $page_id, array $cover_ids): void
+{
+    $migration_version = '1';
+    if ($migration_version === get_option('tower_exchange_social_covers_version')) {
+        return;
+    }
+
+    $rows = get_field('constructor', $page_id, false);
+    if (! is_array($rows)) {
+        WP_CLI::warning('Could not read the page constructor. The Social cover migration will retry next time.');
+        return;
+    }
+
+    foreach ($cover_ids as $shortcode => $attachment_id) {
+        if (! $attachment_id || ! wp_attachment_is_image((int) $attachment_id)) {
+            WP_CLI::warning('A local Social cover is not a valid image: ' . $shortcode . '. The migration will retry next time.');
+            return;
+        }
+    }
+
+    $seed_title_corrections = array(
+        'DSfZCbtCjDp' => array(
+            'from' => 'На сторожі вашого гаманця',
+            'to'   => 'На сторожі вашого кохання',
+        ),
+        'DMK43ErNyfQ' => array(
+            'from' => 'Фінансові послуги по всьому світу',
+            'to'   => 'Сервіси, що знаються в якості',
+        ),
+    );
+    $updated                = 0;
+    $expected_cover_updates = array();
+
+    foreach ($rows as $row_index => $row) {
+        if ('template-social' !== ($row['acf_fc_layout'] ?? '')) {
+            continue;
+        }
+
+        $posts_key = array_key_exists('field_tower_social_posts', $row) ? 'field_tower_social_posts' : 'posts';
+        $posts     = $row[$posts_key] ?? array();
+        if (! is_array($posts)) {
+            continue;
+        }
+
+        foreach ($posts as $post_index => $post) {
+            if (! is_array($post)) {
+                continue;
+            }
+
+            $link = $post['field_tower_social_post_link'] ?? $post['link'] ?? array();
+            $url  = is_array($link) ? (string) ($link['url'] ?? '') : (string) $link;
+            $code = '';
+            foreach (array_keys($cover_ids) as $shortcode) {
+                if (str_contains($url, '/reel/' . $shortcode)) {
+                    $code = $shortcode;
+                    break;
+                }
+            }
+            if ('' === $code) {
+                continue;
+            }
+
+            $cover = $post['field_tower_social_post_cover'] ?? $post['cover'] ?? '';
+            if (empty($cover) && ! empty($cover_ids[$code])) {
+                $posts[$post_index]['field_tower_social_post_cover'] = (int) $cover_ids[$code];
+                $expected_cover_updates[$row_index][$post_index]     = (int) $cover_ids[$code];
+                ++$updated;
+            }
+
+            $title_key = array_key_exists('field_tower_social_post_title', $post) ? 'field_tower_social_post_title' : 'title';
+            $title     = (string) ($post[$title_key] ?? '');
+            $correction = $seed_title_corrections[$code] ?? array();
+            if ($title === ($correction['from'] ?? null)) {
+                $posts[$post_index][$title_key] = $correction['to'];
+                ++$updated;
+            }
+        }
+
+        $rows[$row_index][$posts_key] = $posts;
+    }
+
+    if ($updated) {
+        // ACF may return false when nested values are persisted without a
+        // top-level meta change, so the read-back below is authoritative.
+        update_field('field_tower_constructor', $rows, $page_id);
+    }
+
+    $verified_rows = get_field('constructor', $page_id, false);
+    foreach ($expected_cover_updates as $row_index => $expected_posts) {
+        $verified_row   = $verified_rows[$row_index] ?? array();
+        $verified_posts = $verified_row['field_tower_social_posts'] ?? $verified_row['posts'] ?? array();
+        foreach ($expected_posts as $post_index => $expected_attachment_id) {
+            $verified_post = $verified_posts[$post_index] ?? array();
+            $cover         = $verified_post['field_tower_social_post_cover'] ?? $verified_post['cover'] ?? '';
+            if ((int) $cover !== $expected_attachment_id) {
+                WP_CLI::warning('Could not verify all Social post covers. The migration will retry next time.');
+                return;
+            }
+        }
+    }
+
+    update_option('tower_exchange_social_covers_version', $migration_version, false);
+    WP_CLI::log(sprintf('Populated or corrected %d Social card value(s).', $updated));
+}
+
+tower_bootstrap_migrate_social_post_covers($home_id, $social_cover_ids);
+
+/**
+ * Reuse or create a legal page and seed the constructor only when it is empty.
+ */
+function tower_bootstrap_ensure_text_page(string $slug, string $title, string $content): int
+{
+    $page = get_page_by_path($slug, OBJECT, 'page');
+
+    if (! $page instanceof WP_Post) {
+        $matching_pages = get_posts(
+            array(
+                'post_type'      => 'page',
+                'post_status'    => array('publish', 'draft', 'pending', 'private'),
+                'posts_per_page' => 1,
+                'title'          => $title,
+            )
+        );
+        $page = $matching_pages ? $matching_pages[0] : null;
+    }
+
+    if ($page instanceof WP_Post) {
+        $page_id = (int) $page->ID;
+    } else {
+        $page_id = wp_insert_post(
+            array(
+                'post_type'    => 'page',
+                'post_title'   => $title,
+                'post_name'    => $slug,
+                'post_status'  => 'publish',
+                'post_content' => '',
+            ),
+            true
+        );
+        if (is_wp_error($page_id)) {
+            WP_CLI::error($page_id->get_error_message());
+        }
+        $page_id = (int) $page_id;
+    }
+
+    $template = get_page_template_slug($page_id);
+    if ('' === $template || 'default' === $template) {
+        update_post_meta($page_id, '_wp_page_template', 'page-constructor.php');
+        $template = 'page-constructor.php';
+    }
+
+    if ('page-constructor.php' === $template) {
+        $constructor = get_field('constructor', $page_id, false);
+        if (empty($constructor)) {
+            update_field(
+                'field_tower_constructor',
+                array(
+                    array(
+                        'acf_fc_layout'                         => 'template-simple-text',
+                        'field_tower_simple_text_disable'       => 0,
+                        'field_tower_simple_text_title'         => $title,
+                        'field_tower_simple_text_content'       => $content,
+                    ),
+                ),
+                $page_id
+            );
+            WP_CLI::log('Prepared the editable text page: ' . $title);
+        }
+    }
+
+    return $page_id;
+}
+
 function tower_bootstrap_menu(string $name, array $items): int
 {
     $menu = wp_get_nav_menu_object($name);
@@ -751,6 +1239,52 @@ function tower_bootstrap_menu(string $name, array $items): int
             if (is_wp_error($menu_item_id)) {
                 WP_CLI::error($menu_item_id->get_error_message());
             }
+        }
+    }
+
+    return $menu_id;
+}
+
+/**
+ * Build a legal menu from real WordPress page objects without replacing edits.
+ *
+ * @param array<int, int> $page_ids Page IDs in the intended order.
+ */
+function tower_bootstrap_page_menu(string $name, array $page_ids): int
+{
+    $menu = wp_get_nav_menu_object($name);
+    $menu_result = $menu ? $menu->term_id : wp_create_nav_menu($name);
+    if (is_wp_error($menu_result)) {
+        WP_CLI::error($menu_result->get_error_message());
+    }
+    $menu_id = (int) $menu_result;
+
+    $existing_page_ids = array();
+    foreach ((array) wp_get_nav_menu_items($menu_id) as $menu_item) {
+        if ('post_type' === $menu_item->type && 'page' === $menu_item->object) {
+            $existing_page_ids[] = (int) $menu_item->object_id;
+        }
+    }
+
+    foreach ($page_ids as $page_id) {
+        $page_id = (int) $page_id;
+        if (! $page_id || in_array($page_id, $existing_page_ids, true)) {
+            continue;
+        }
+
+        $menu_item_id = wp_update_nav_menu_item(
+            $menu_id,
+            0,
+            array(
+                'menu-item-title'     => get_the_title($page_id),
+                'menu-item-object-id' => $page_id,
+                'menu-item-object'    => 'page',
+                'menu-item-status'    => 'publish',
+                'menu-item-type'      => 'post_type',
+            )
+        );
+        if (is_wp_error($menu_item_id)) {
+            WP_CLI::error($menu_item_id->get_error_message());
         }
     }
 
@@ -789,6 +1323,36 @@ if (! $bootstrap_complete) {
     update_option('timezone_string', 'Europe/Kyiv');
     flush_rewrite_rules(true);
     update_option('tower_exchange_bootstrap_complete', '1', false);
+}
+
+$legal_pages_migration_version = '2';
+if ($legal_pages_migration_version !== (string) get_option('tower_exchange_legal_pages_version', '')) {
+    $privacy_page_id = tower_bootstrap_ensure_text_page(
+        'privacy-policy',
+        'Політика конфіденційності',
+        '<p>Інформація про обробку персональних даних буде опублікована після погодження остаточної редакції документа.</p>'
+    );
+    $terms_page_id = tower_bootstrap_ensure_text_page(
+        'terms-of-use',
+        'Умови користування',
+        '<p>Умови користування сайтом будуть опубліковані після погодження остаточної редакції документа.</p>'
+    );
+
+    if (! (int) get_option('wp_page_for_privacy_policy', 0)) {
+        update_option('wp_page_for_privacy_policy', $privacy_page_id);
+    }
+
+    $legal_menu_id = tower_bootstrap_page_menu(
+        'Tower Footer Legal',
+        array($privacy_page_id, $terms_page_id)
+    );
+    $locations = get_theme_mod('nav_menu_locations', array());
+    if (empty($locations['footer-legal'])) {
+        $locations['footer-legal'] = $legal_menu_id;
+        set_theme_mod('nav_menu_locations', $locations);
+    }
+
+    update_option('tower_exchange_legal_pages_version', $legal_pages_migration_version, false);
 }
 
 WP_CLI::success('Tower Exchange WordPress integration bootstrap completed. Home page ID: ' . $home_id);
