@@ -1,0 +1,156 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Tower Exchange 1.0.0\n"
+"Report-Msgid-Bugs-To: https://github.com/Serega1288/tower-exchange/issues\n"
+"Last-Translator: Tower Exchange\n"
+"Language-Team: Ukrainian\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-09-21T12:56:39+00:00\n"
+"PO-Revision-Date: 2026-09-21 15:20+0300\n"
+"Language: uk\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: tower-exchange\n"
+
+#: footer.php:32
+#: header.php:59
+msgid "Tower Exchange — на початок сторінки"
+msgstr "Tower Exchange — на початок сторінки"
+
+#: footer.php:63
+msgid "Політика конфіденційності · готується"
+msgstr "Політика конфіденційності · готується"
+
+#: footer.php:64
+msgid "Умови користування · готуються"
+msgstr "Умови користування · готуються"
+
+#: header.php:56
+msgid "Перейти до основного вмісту"
+msgstr "Перейти до основного вмісту"
+
+#: header.php:69
+msgid "Основна навігація"
+msgstr "Основна навігація"
+
+#: header.php:88
+msgid "Мова сайту — українська"
+msgstr "Мова сайту — українська"
+
+#: header.php:89
+msgid "Темна тема"
+msgstr "Темна тема"
+
+#: header.php:89
+#: inc/enqueue.php:36
+msgid "Увімкнути темну тему"
+msgstr "Увімкнути темну тему"
+
+#: header.php:90
+msgid "Світла"
+msgstr "Світла"
+
+#: header.php:91
+msgid "Темна"
+msgstr "Темна"
+
+#: header.php:97
+#: inc/enqueue.php:38
+msgid "Відкрити меню"
+msgstr "Відкрити меню"
+
+#: header.php:104
+msgid "Мобільна навігація"
+msgstr "Мобільна навігація"
+
+#: inc/acf.php:17
+msgid "Tower Exchange settings"
+msgstr "Налаштування Tower Exchange"
+
+#: inc/acf.php:18
+msgid "Tower settings"
+msgstr "Tower — налаштування"
+
+#: inc/enqueue.php:37
+msgid "Увімкнути світлу тему"
+msgstr "Увімкнути світлу тему"
+
+#: inc/enqueue.php:39
+msgid "Закрити меню"
+msgstr "Закрити меню"
+
+#: inc/enqueue.php:40
+msgid "Готівка"
+msgstr "Готівка"
+
+#. translators: %s: source currency or asset name.
+#: inc/enqueue.php:42
+#, php-format
+msgid "Сума: %s"
+msgstr "Сума: %s"
+
+#: inc/enqueue.php:43
+msgid "USDT → готівка"
+msgstr "USDT → готівка"
+
+#: inc/enqueue.php:44
+msgid "Готівка → USDT"
+msgstr "Готівка → USDT"
+
+#. translators: %s: amount entered by the visitor.
+#: inc/enqueue.php:46
+#, php-format
+msgid ", сума %s"
+msgstr ", сума %s"
+
+#. translators: 1: exchange direction, 2: optional amount fragment.
+#: inc/enqueue.php:48
+#, php-format
+msgid "Вітаю! Хочу уточнити розрахунок: %1$s%2$s."
+msgstr "Вітаю! Хочу уточнити розрахунок: %1$s%2$s."
+
+#: inc/setup.php:22
+msgid "Header desktop menu"
+msgstr "Меню в шапці — комп’ютер"
+
+#: inc/setup.php:23
+msgid "Header mobile menu"
+msgstr "Меню в шапці — мобільний"
+
+#: inc/setup.php:24
+msgid "Footer social links"
+msgstr "Соціальні посилання у підвалі"
+
+#: inc/template/calculator.php:22
+msgid "Напрям обміну"
+msgstr "Напрям обміну"
+
+#: inc/template/calculator.php:29
+msgid "Сума: USDT"
+msgstr "Сума: USDT"
+
+#: inc/template/calculator.php:31
+msgid "Змінити напрям обміну"
+msgstr "Змінити напрям обміну"
+
+#: inc/template/hero.php:45
+msgid "Фірмовий знак Tower Exchange"
+msgstr "Фірмовий знак Tower Exchange"
+
+#: inc/template/hero.php:50
+msgid "Логотип Tower Exchange"
+msgstr "Логотип Tower Exchange"
+
+#: inc/template/hero.php:59
+msgid "Ключова інформація"
+msgstr "Ключова інформація"
+
+#: index.php:20
+msgid "Вміст не знайдено."
+msgstr "Вміст не знайдено."
+
+#. Template Name of the theme
+msgid "Constructor"
+msgstr "Конструктор"

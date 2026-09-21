@@ -1,0 +1,13 @@
+.env*
+!.env.example
+.idea/
+node_modules/
+
+database/*.sql
+database/*.sql.gz
+plugins-archives/*.zip
+
+*.log
+*.map
+.DS_Store
+Thumbs.db
