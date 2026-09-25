@@ -57,7 +57,7 @@ project-theme/
 ## Редагування контенту
 
 - `Tower — налаштування` в адмінці — логотипи, назва бренду, CTA та footer.
-- `Сторінки → Головна` — ACF Flexible Content-конструктор із дев’яти секцій.
+- `Сторінки → Головна` — ACF Flexible Content-конструктор із десяти секцій.
 - `Вигляд → Меню` — окремі desktop, mobile та footer-меню.
 - Кожну секцію можна переставити, повторити або вимкнути перемикачем `Вимкнути блок`.
 - Калькулятор є ізольованим блоком і може бути вимкнений без впливу на інші секції.
@@ -69,6 +69,26 @@ project-theme/
 - Резерв старої теми: `project-theme/old`
 - Дамп перед інтеграцією: `database/tower-pre-integration.sql` (локальний, ігнорується Git)
 
-## Деплой
+## Деплой теми через Deployer for Git
 
-Для production потрібна папка `project-theme` та експортована база WordPress. Локальні `.env`, SQL-дампи, `node_modules` і ліцензійні zip-плагіни не додаються до Git.
+Гілка `theme-deploy` містить лише вміст `project-theme` у корені. Після коміту змін у `main` її потрібно зібрати й опублікувати так:
+
+```powershell
+$sourceCommit = git rev-parse main
+$deployCommit = git subtree split --prefix=project-theme $sourceCommit
+git diff --exit-code "${sourceCommit}:project-theme" "${deployCommit}^{tree}"
+git push origin "${deployCommit}:refs/heads/theme-deploy"
+```
+
+Налаштування пакета в плагіні:
+
+- тип пакета: `Theme`;
+- провайдер: `GitHub`;
+- репозиторій: `https://github.com/Serega1288/tower-exchange` без `.git`;
+- гілка: `theme-deploy`;
+- `Miscellaneous → Flush cache`: увімкнено;
+- для автоматичного деплою додати `Push-to-Deploy/Webhook URL` плагіна до GitHub Webhooks з типом `application/json` і подією `push`.
+
+Deployer for Git формує папку теми з назви репозиторію: `tower-exchange`. Після першого встановлення цю тему потрібно активувати та перевірити призначення меню. Версійні зміни ACF-контенту застосовуються окремо командою bootstrap з фактичної папки активної теми.
+
+Локальні `.env`, SQL-дампи, `node_modules` і ліцензійні zip-плагіни не додаються до Git.

@@ -241,6 +241,51 @@ $services_fields = array(
     ),
 );
 
+$coverage_fields = array(
+    tower_bootstrap_disable('coverage'),
+    tower_bootstrap_message('coverage_heading_message', 'Заголовок секції'),
+    tower_bootstrap_text('coverage_eyebrow', 'Надзаголовок', 'eyebrow', '25'),
+    tower_bootstrap_text('coverage_title', 'Заголовок', 'title', '35'),
+    tower_bootstrap_textarea('coverage_intro', 'Вступ', 'intro', '40'),
+    tower_bootstrap_message('coverage_directions_message', 'Напрями обміну'),
+    tower_bootstrap_text('coverage_direction_cash_crypto', 'Напрям 1', 'direction_cash_crypto', '50'),
+    tower_bootstrap_text('coverage_direction_crypto_cash', 'Напрям 2', 'direction_crypto_cash', '50'),
+    tower_bootstrap_message('coverage_countries_message', 'Країни та міста'),
+    tower_bootstrap_text('coverage_countries_title', 'Заголовок списку', 'countries_title', '100'),
+    tower_bootstrap_repeater(
+        'coverage_countries',
+        'Список країн і міст',
+        'countries',
+        array(
+            tower_bootstrap_text('coverage_country_code', 'Код країни', 'code', '15'),
+            tower_bootstrap_text('coverage_country_name', 'Країна', 'country', '25'),
+            tower_bootstrap_text('coverage_country_cities', 'Міста', 'cities', '60'),
+        ),
+        'Додати країну'
+    ),
+    tower_bootstrap_text('coverage_other_cities', 'Примітка про інші міста', 'other_cities', '100'),
+    tower_bootstrap_message('coverage_payments_message', 'Перекази та оплати'),
+    tower_bootstrap_text('coverage_payments_title', 'Заголовок списку', 'payments_title', '100'),
+    tower_bootstrap_repeater(
+        'coverage_payments',
+        'Способи переказів та оплат',
+        'payments',
+        array(
+            tower_bootstrap_text('coverage_payment_label', 'Категорія', 'label', '30'),
+            tower_bootstrap_text('coverage_payment_details', 'Сервіси або опис', 'details', '70'),
+        ),
+        'Додати спосіб'
+    ),
+    tower_bootstrap_text('coverage_same_day_text', 'Акцентний текст', 'same_day_text', '50'),
+    tower_bootstrap_link_field('coverage_cta_link', 'Кнопка Telegram', 'cta_link', '50'),
+);
+$coverage_layout = tower_bootstrap_layout(
+    'coverage',
+    'template-coverage',
+    'Географія та перекази',
+    $coverage_fields
+);
+
 $process_fields = array(
     tower_bootstrap_disable('process'),
     tower_bootstrap_message('process_heading_message', 'Опис процесу'),
@@ -420,6 +465,7 @@ $constructor_group = array(
                     tower_bootstrap_layout('hero', 'template-hero', 'Hero', $hero_fields),
                     tower_bootstrap_layout('calculator', 'template-calculator', 'Попередній розрахунок', $calculator_fields),
                     tower_bootstrap_layout('services', 'template-services', 'Послуги', $services_fields),
+                    $coverage_layout,
                     tower_bootstrap_layout('process', 'template-process', 'Як це працює', $process_fields),
                     tower_bootstrap_layout('security', 'template-security', 'Безпека й офіційні контакти', $security_fields),
                     tower_bootstrap_layout('office', 'template-office', 'Офіс', $office_fields),
@@ -697,6 +743,137 @@ function tower_bootstrap_migrate_simple_text_layout(array $layout): void
     update_option('tower_exchange_acf_simple_text_layout_version', $migration_version, false);
 }
 
+/**
+ * Add the Coverage layout and its repeater children without replacing the
+ * editor-managed constructor group.
+ *
+ * @param array<string, mixed> $layout Flexible Content layout definition.
+ */
+function tower_bootstrap_migrate_coverage_layout(array $layout): void
+{
+    $migration_version = '1';
+    if ($migration_version === get_option('tower_exchange_acf_coverage_layout_version')) {
+        return;
+    }
+
+    $constructor_field = acf_get_field('field_tower_constructor');
+    if (! $constructor_field) {
+        WP_CLI::warning('Could not find the constructor field. The Coverage layout migration will retry next time.');
+        return;
+    }
+
+    $layout_key = '';
+    foreach (($constructor_field['layouts'] ?? array()) as $stored_layout) {
+        if (
+            ($stored_layout['key'] ?? '') === ($layout['key'] ?? '')
+            || ($stored_layout['name'] ?? '') === ($layout['name'] ?? '')
+        ) {
+            $layout_key = (string) ($stored_layout['key'] ?? $layout['key']);
+            break;
+        }
+    }
+
+    if ('' === $layout_key) {
+        $layout_metadata = $layout;
+        unset($layout_metadata['sub_fields']);
+
+        $layouts       = array_values($constructor_field['layouts'] ?? array());
+        $insert_offset = count($layouts);
+        foreach ($layouts as $index => $stored_layout) {
+            if ('template-services' === ($stored_layout['name'] ?? '')) {
+                $insert_offset = $index + 1;
+                break;
+            }
+        }
+        array_splice($layouts, $insert_offset, 0, array($layout_metadata));
+        $constructor_field['layouts'] = $layouts;
+        acf_update_field($constructor_field);
+        $layout_key = (string) $layout['key'];
+        WP_CLI::log('Added the Coverage layout to the page constructor.');
+
+        $fields_store = acf_get_store('fields');
+        if ($fields_store) {
+            $fields_store->reset();
+        }
+    }
+
+    foreach (($layout['sub_fields'] ?? array()) as $menu_order => $field_definition) {
+        $children = $field_definition['sub_fields'] ?? array();
+        unset($field_definition['sub_fields']);
+
+        $stored_field = acf_get_field($field_definition['key']);
+        if (! $stored_field) {
+            $field_definition['parent']        = 'field_tower_constructor';
+            $field_definition['parent_layout'] = $layout_key;
+            $field_definition['menu_order']    = $menu_order;
+            $stored_field                      = acf_update_field($field_definition);
+        }
+
+        if (! $stored_field || $layout_key !== ($stored_field['parent_layout'] ?? '')) {
+            WP_CLI::warning('Could not add a Coverage field. The migration will retry next time.');
+            return;
+        }
+
+        if (! $children) {
+            continue;
+        }
+
+        $child_parent = ! empty($stored_field['ID']) ? (int) $stored_field['ID'] : $stored_field['key'];
+        foreach ($children as $child_order => $child_definition) {
+            if (acf_get_field($child_definition['key'])) {
+                continue;
+            }
+
+            $child_definition['parent']     = $child_parent;
+            $child_definition['menu_order'] = $child_order;
+            acf_update_field($child_definition);
+        }
+    }
+
+    $fields_store = acf_get_store('fields');
+    if ($fields_store) {
+        $fields_store->reset();
+    }
+
+    $verified_constructor = acf_get_field('field_tower_constructor');
+    $verified_layout      = false;
+    foreach (($verified_constructor['layouts'] ?? array()) as $stored_layout) {
+        if (($stored_layout['key'] ?? '') === $layout_key) {
+            $verified_layout = true;
+            break;
+        }
+    }
+
+    if (! $verified_layout) {
+        WP_CLI::warning('Could not verify the Coverage layout. The migration will retry next time.');
+        return;
+    }
+
+    foreach (($layout['sub_fields'] ?? array()) as $field_definition) {
+        $stored_field = acf_get_field($field_definition['key']);
+        if (! $stored_field || $layout_key !== ($stored_field['parent_layout'] ?? '')) {
+            WP_CLI::warning('Could not verify the Coverage fields. The migration will retry next time.');
+            return;
+        }
+
+        $valid_child_parents = array_filter(
+            array(
+                (string) ($stored_field['ID'] ?? ''),
+                (string) ($stored_field['key'] ?? ''),
+            )
+        );
+        foreach (($field_definition['sub_fields'] ?? array()) as $child_definition) {
+            $stored_child = acf_get_field($child_definition['key']);
+            if (! $stored_child || ! in_array((string) ($stored_child['parent'] ?? ''), $valid_child_parents, true)) {
+                WP_CLI::warning('Could not verify the Coverage repeater fields. The migration will retry next time.');
+                return;
+            }
+        }
+    }
+
+    update_option('tower_exchange_acf_coverage_layout_version', $migration_version, false);
+}
+
 foreach (array($options_group, $constructor_group) as $field_group) {
     if (! acf_get_field_group($field_group['key'])) {
         acf_import_field_group($field_group);
@@ -710,6 +887,7 @@ tower_bootstrap_migrate_duplicate_messages(array($options_group, $constructor_gr
 tower_bootstrap_migrate_office_map_embed_field($office_map_embed_field);
 tower_bootstrap_migrate_social_post_cover_field($social_post_cover_field);
 tower_bootstrap_migrate_simple_text_layout($simple_text_layout);
+tower_bootstrap_migrate_coverage_layout($coverage_layout);
 
 $bootstrap_complete = (bool) get_option('tower_exchange_bootstrap_complete', false);
 
@@ -835,6 +1013,66 @@ if ($home_created || ! $bootstrap_complete) {
 
 $manager = 'https://t.me/towerexchange_kyiv';
 $google_maps_embed_url = 'https://www.google.com/maps/embed?origin=mfe&pb=!1m2!2m1!1z0JHQpiDQn9Cw0YDRg9GBLCDQstGD0LsuINCc0LXRh9C90LjQutC-0LLQsCwgMiwg0JrQuNGX0LI';
+$coverage_countries = array(
+    array('code' => 'UA', 'country' => 'Україна', 'cities' => 'Київ, Одеса, Львів, Дніпро, Харків'),
+    array('code' => 'PL', 'country' => 'Польща', 'cities' => 'Варшава, Краків, Познань, Вроцлав'),
+    array('code' => 'DE', 'country' => 'Німеччина', 'cities' => 'Берлін, Дортмунд, Мюнхен, Франкфурт, Дюссельдорф'),
+    array('code' => 'AT', 'country' => 'Австрія', 'cities' => 'Відень'),
+    array('code' => 'ES', 'country' => 'Іспанія', 'cities' => 'Барселона, Мадрид, Аліканте, Валенсія, Марбелья'),
+    array('code' => 'CZ', 'country' => 'Чехія', 'cities' => 'Прага'),
+    array('code' => 'IT', 'country' => 'Італія', 'cities' => 'Мілан, Рим'),
+    array('code' => 'CH', 'country' => 'Швейцарія', 'cities' => 'Цюрих, Женева, Люцерн'),
+    array('code' => 'GR', 'country' => 'Греція', 'cities' => 'Афіни, Салоніки'),
+    array('code' => 'SK', 'country' => 'Словаччина', 'cities' => 'Братислава'),
+    array('code' => 'ME', 'country' => 'Чорногорія', 'cities' => 'Будва, Тиват'),
+    array('code' => 'RO', 'country' => 'Румунія', 'cities' => 'Бухарест'),
+    array('code' => 'BG', 'country' => 'Болгарія', 'cities' => 'Софія, Варна'),
+    array('code' => 'GB', 'country' => 'Англія', 'cities' => 'Лондон'),
+    array('code' => 'PT', 'country' => 'Португалія', 'cities' => 'Лісабон, Кашкайш'),
+    array('code' => 'TR', 'country' => 'Туреччина', 'cities' => 'Стамбул, Анталія, Аланія, Мерсін'),
+    array('code' => 'US', 'country' => 'США', 'cities' => 'Нью-Йорк, Маямі, Лос-Анджелес'),
+    array('code' => 'CA', 'country' => 'Канада', 'cities' => 'Торонто'),
+    array('code' => 'AE', 'country' => 'ОАЕ', 'cities' => 'Дубай'),
+    array('code' => 'NL', 'country' => 'Нідерланди', 'cities' => 'Амстердам, Роттердам'),
+    array('code' => 'BE', 'country' => 'Бельгія', 'cities' => 'Брюссель'),
+    array('code' => 'CY', 'country' => 'Кіпр', 'cities' => 'Лімасол'),
+    array('code' => 'IL', 'country' => 'Ізраїль', 'cities' => 'Тель-Авів та ін. міста'),
+);
+$coverage_payments = array(
+    array('label' => 'USD / EUR', 'details' => 'SWIFT, SEPA, Wise, Revolut, Paysera'),
+    array('label' => 'CNY', 'details' => 'Alipay, WeChat'),
+    array('label' => 'Оплата', 'details' => 'PayPal, Copart'),
+    array('label' => 'UAH', 'details' => 'Перекази гривні на картку'),
+);
+$coverage_row = array(
+    'acf_fc_layout'                              => 'template-coverage',
+    'field_tower_coverage_disable'               => 0,
+    'field_tower_coverage_eyebrow'               => 'Географія · World Desk',
+    'field_tower_coverage_title'                 => 'Працюємо по всьому світу',
+    'field_tower_coverage_intro'                 => 'Оберіть країну й потрібне місто. Доступність і деталі операції підтверджує менеджер.',
+    'field_tower_coverage_direction_cash_crypto' => 'Готівка → USDT',
+    'field_tower_coverage_direction_crypto_cash' => 'USDT → готівка',
+    'field_tower_coverage_countries_title'       => 'Країни та міста',
+    'field_tower_coverage_countries'             => array_map(
+        static fn(array $country): array => array(
+            'field_tower_coverage_country_code'   => $country['code'],
+            'field_tower_coverage_country_name'   => $country['country'],
+            'field_tower_coverage_country_cities' => $country['cities'],
+        ),
+        $coverage_countries
+    ),
+    'field_tower_coverage_other_cities'          => 'Інші міста — за запитом!',
+    'field_tower_coverage_payments_title'        => 'Перекази та оплати',
+    'field_tower_coverage_payments'              => array_map(
+        static fn(array $payment): array => array(
+            'field_tower_coverage_payment_label'   => $payment['label'],
+            'field_tower_coverage_payment_details' => $payment['details'],
+        ),
+        $coverage_payments
+    ),
+    'field_tower_coverage_same_day_text'         => 'Видача в той самий день!',
+    'field_tower_coverage_cta_link'              => array('url' => $manager, 'title' => 'Уточнити місто та умови', 'target' => '_blank'),
+);
 $constructor_rows = array(
     array(
         'acf_fc_layout' => 'template-hero',
@@ -887,6 +1125,7 @@ $constructor_rows = array(
             array('icon' => 'card', 'title' => 'Безготівкові перекази', 'text' => 'Формат і доступні напрямки переказу узгоджуються індивідуально через офіційний Telegram.', 'link' => array('url' => $manager, 'title' => 'Уточнити деталі', 'target' => '_blank')),
         ),
     ),
+    $coverage_row,
     array(
         'acf_fc_layout' => 'template-process',
         'disable_block' => 0,
@@ -977,6 +1216,66 @@ if (($home_created || ! $bootstrap_complete) && empty($current_constructor)) {
 } else {
     WP_CLI::log('Kept the existing home page constructor content.');
 }
+
+/**
+ * Insert the Coverage section once into an existing non-empty constructor.
+ * Existing Coverage rows and every other editor-managed row are preserved.
+ *
+ * @param array<string, mixed> $coverage_row Raw ACF row keyed by field keys.
+ */
+function tower_bootstrap_migrate_coverage_row(int $page_id, array $coverage_row): void
+{
+    $migration_version = '1';
+    if ($migration_version === get_option('tower_exchange_coverage_row_version')) {
+        return;
+    }
+
+    $rows = get_field('constructor', $page_id, false);
+    if (! is_array($rows)) {
+        WP_CLI::warning('Could not read the page constructor. The Coverage row migration will retry next time.');
+        return;
+    }
+
+    foreach ($rows as $row) {
+        if ('template-coverage' === ($row['acf_fc_layout'] ?? '')) {
+            update_option('tower_exchange_coverage_row_version', $migration_version, false);
+            WP_CLI::log('Kept the existing Coverage section content.');
+            return;
+        }
+    }
+
+    $insert_offset = count($rows);
+    foreach ($rows as $index => $row) {
+        if ('template-services' === ($row['acf_fc_layout'] ?? '')) {
+            $insert_offset = $index + 1;
+            break;
+        }
+        if ('template-process' === ($row['acf_fc_layout'] ?? '') && count($rows) === $insert_offset) {
+            $insert_offset = $index;
+        }
+    }
+
+    array_splice($rows, $insert_offset, 0, array($coverage_row));
+    update_field('field_tower_constructor', $rows, $page_id);
+
+    $verified_rows = get_field('constructor', $page_id, false);
+    $verified      = 0;
+    foreach (is_array($verified_rows) ? $verified_rows : array() as $verified_row) {
+        if ('template-coverage' === ($verified_row['acf_fc_layout'] ?? '')) {
+            ++$verified;
+        }
+    }
+
+    if (1 !== $verified) {
+        WP_CLI::warning('Could not verify the Coverage section. The migration will retry next time.');
+        return;
+    }
+
+    update_option('tower_exchange_coverage_row_version', $migration_version, false);
+    WP_CLI::log('Inserted the Coverage section after Services.');
+}
+
+tower_bootstrap_migrate_coverage_row($home_id, $coverage_row);
 
 /**
  * Populate only an empty embed URL in existing Office rows.

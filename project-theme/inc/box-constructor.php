@@ -41,6 +41,9 @@ while (have_rows('constructor')) :
         case 'template-services':
             get_template_part('inc/template/services', null, $section_suffix);
             break;
+        case 'template-coverage':
+            get_template_part('inc/template/coverage', null, $section_suffix);
+            break;
         case 'template-process':
             get_template_part('inc/template/process', null, $section_suffix);
             break;
