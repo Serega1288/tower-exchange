@@ -37,6 +37,15 @@ $desktop_items = array(
     <meta charset="<?php bloginfo('charset'); ?>">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f2efe7">
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18480668205"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'AW-18480668205');
+    </script>
     <link rel="icon" type="image/png" href="<?php echo esc_url($logo_light); ?>" data-logo-light="<?php echo esc_url($logo_light); ?>" data-logo-dark="<?php echo esc_url($logo_dark); ?>">
     <script>
         (() => {
