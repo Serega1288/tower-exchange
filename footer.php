@@ -93,6 +93,13 @@ $terms_page  = get_page_by_path('terms-of-use', OBJECT, 'page');
         <?php echo tower_exchange_icon('telegram', 20); ?><?php echo esc_html($mobile_cta['title']); ?>
     </a>
 </div>
+<script>
+document.addEventListener('click', function (e) {
+  var link = e.target.closest('a[href*="t.me/towerexchange_kyiv"]');
+  if (!link) return;
+  gtag('event', 'conversion', {'send_to': 'AW-18480668205/Db3zCJebypsdEK28ouxE'});
+});
+</script>
 <?php wp_footer(); ?>
 </body>
 </html>
